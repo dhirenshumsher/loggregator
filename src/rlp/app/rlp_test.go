@@ -18,6 +18,7 @@ import (
 
 var _ = Describe("Start", func() {
 	It("receive messages via egress client", func() {
+		// create fake doppler
 		router := newMockDopplerServer()
 
 		lis, err := net.Listen("tcp", "localhost:0")
@@ -28,12 +29,14 @@ var _ = Describe("Start", func() {
 		plumbing.RegisterDopplerServer(grpcServer, router)
 		go grpcServer.Serve(lis)
 
-		addr := app.Start(
-			app.WithLogRouterAddrs([]string{lis.Addr().String()}),
+		// point our app at the fake doppler
+		rlp := app.Start(
+			app.WithIngressAddrs([]string{lis.Addr().String()}),
 		)
+		go rlp.Start()
 
-		// grpc client
-		conn, err := grpc.Dial(addr, grpc.WithInsecure())
+		// create public client consuming log API
+		conn, err := grpc.Dial(rlp.EgressAddr.String(), grpc.WithInsecure())
 		Expect(err).ToNot(HaveOccurred())
 
 		defer conn.Close()
